@@ -1,0 +1,245 @@
+service: cognito-adapter
+
+custom:
+  webpackIncludeModules: true
+  alerts:
+    stages: # Optionally - select which stages to deploy alarms to
+      - ${env:STAGE, 'development'}
+
+    dashboards: true
+
+    nameTemplate: $[functionName]-$[metricName]-Alarm # Optionally - naming template for alarms, can be overwritten in definitions
+    prefixTemplate: $[stackName] # Optionally - override the alarm name prefix
+
+    topics:
+      alarm: arn:aws:sns:eu-north-1:463333944203:lambda-status
+    definitions:  # these defaults are merged with your definitions
+      functionErrors:
+        period: 300 # override period
+      ErrorsAlarm:
+        namespace: 'AWS/Lambda'
+        nameTemplate: $[functionName]-errors-Alarm # Optionally - naming template for the alarms, overwrites globally defined one
+        prefixTemplate: $[stackName] # Optionally - override the alarm name prefix, overwrites globally defined one
+        metric: Errors
+        threshold: 1
+        statistic: Maximum
+        period: 60
+        evaluationPeriods: 1
+        datapointsToAlarm: 1
+        comparisonOperator: GreaterThanOrEqualToThreshold
+        treatMissingData: notBreaching
+
+provider:
+  name: aws
+  runtime: nodejs10.x
+  region: ${env:REGION, 'eu-north-1'}
+  stage: ${env:STAGE, 'development'}
+  memorySize: 256
+  logRetentionInDays: 7
+  timeout: 60
+  deploymentBucket:
+    name: "common-deployment-bucket"
+  apiKeys:
+    - api-key-cognito-adapter-${env:STAGE, 'development'}
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "cognito-idp:*"
+      Resource:
+        - "*"
+    - Effect: "Allow"
+      Action:
+        - ec2:CreateNetworkInterface
+        - ec2:DescribeNetworkInterfaces
+        - ec2:DeleteNetworkInterface
+      Resource: "*"
+  vpc:
+    securityGroupIds:
+      - sg-07cf066e
+    subnetIds:
+      - subnet-0e0bec7a26fe760fe
+      - subnet-055d1804c90eca2e1
+      - subnet-0d13bebf57a9bc85c
+
+package:
+  excludeDevDependencies: true
+  exclude:
+    - node_modules/**
+    - bucket/**
+    - layer/nodejs/**
+    - .env
+    - __tests__/**
+    - deploy-module.sh
+    - package-lock.json
+  include:
+    - helper/**
+    - package.json
+
+plugins:
+  - serverless-plugin-aws-alerts
+  - serverless-offline
+  - serverless-plugin-tracing
+  - serverless-pseudo-parameters
+  - serverless-dotenv-plugin
+  - serverless-deployment-bucket
+
+layers:
+  CognitoAdapter:
+    path: layer
+    compatibleRuntimes:
+      - nodejs10.x
+
+functions:
+  signUp:
+    handler: handler.signUp
+    alarms:
+      - ErrorsAlarm
+    layers:
+      - {Ref: CognitoAdapterLambdaLayer}
+    events:
+      - http:
+          path: sign-up
+          method: post
+          cors: true
+          private: true
+  confirmSignUp:
+    handler: handler.confirmSignUp
+    alarms:
+      - ErrorsAlarm
+    layers:
+      - {Ref: CognitoAdapterLambdaLayer}
+    events:
+      - http:
+          path: confirm-sign-up
+          method: post
+          cors: true
+          private: true
+  auth:
+    handler: handler.auth
+    alarms:
+      - ErrorsAlarm
+    layers:
+      - {Ref: CognitoAdapterLambdaLayer}
+    events:
+      - http:
+          path: auth
+          method: post
+          cors: true
+          private: true
+  changePassword:
+    handler: handler.changePassword
+    alarms:
+      - ErrorsAlarm
+    layers:
+      - {Ref: CognitoAdapterLambdaLayer}
+    events:
+      - http:
+          path: change-password
+          method: post
+          cors: true
+          private: true
+  confirmResetPassword:
+    handler: handler.confirmResetPassword
+    alarms:
+      - ErrorsAlarm
+    layers:
+      - {Ref: CognitoAdapterLambdaLayer}
+    events:
+      - http:
+          path: confirm-reset-password
+          method: post
+          cors: true
+          private: true
+  resendConfirmationCode:
+    handler: handler.resendConfirmationCode
+    alarms:
+      - ErrorsAlarm
+    layers:
+      - {Ref: CognitoAdapterLambdaLayer}
+    events:
+      - http:
+          path: resend-code
+          method: post
+          cors: true
+          private: true
+  resetPassword:
+    handler: handler.resetPassword
+    alarms:
+      - ErrorsAlarm
+    layers:
+      - {Ref: CognitoAdapterLambdaLayer}
+    events:
+      - http:
+          path: reset-password
+          method: post
+          cors: true
+          private: true
+  facebookLogin:
+    handler: handler.facebookLogin
+    alarms:
+      - ErrorsAlarm
+    layers:
+      - {Ref: CognitoAdapterLambdaLayer}
+    events:
+      - http:
+          path: facebook-login
+          method: post
+          cors: true
+  googleLogin:
+    handler: handler.googleLogin
+    alarms:
+      - ErrorsAlarm
+    layers:
+      - {Ref: CognitoAdapterLambdaLayer}
+    events:
+      - http:
+          path: google-login
+          method: post
+          cors: true
+  appleLogin:
+    handler: handler.appleLogin
+    alarms:
+      - ErrorsAlarm
+    layers:
+      - {Ref: CognitoAdapterLambdaLayer}
+    events:
+      - http:
+          path: apple-login
+          method: post
+          cors: true
+  signUpWithConfirm:
+    handler: handler.signupWithConfirm
+    alarms:
+      - ErrorsAlarm
+    layers:
+      - {Ref: CognitoAdapterLambdaLayer}
+    events:
+      - http:
+          path: sign-up-confirmed
+          method: post
+          cors: true
+          private: true
+  resetPasswordWithConfirm:
+    handler: handler.resetPasswordWithConfirm
+    alarms:
+      - ErrorsAlarm
+    layers:
+      - {Ref: CognitoAdapterLambdaLayer}
+    events:
+      - http:
+          path: reset-password-confirmed
+          method: post
+          cors: true
+          private: true
+  signUpWithChallenge:
+    handler: handler.signUpWithChangePassword
+    alarms:
+      - ErrorsAlarm
+    layers:
+      - {Ref: CognitoAdapterLambdaLayer}
+    events:
+      - http:
+          path: challenge-sign-up
+          method: post
+          cors: true
+          private: true
